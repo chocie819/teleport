@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>Teleport — preview</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="popup.css" />
+<style>
+  html { background:#11202f; }
+  body { margin:24px auto; }
+  .pv-note { text-align:center; color:#7e93a1; font:12.5px system-ui; margin:0 auto 14px; max-width:344px; }
+</style></head>
+<body>
+<p class="pv-note">Standalone preview · open from the unzipped folder so the map loads</p>
+
+  <div class="sky">
+    <span class="orb" aria-hidden="true"></span>
+    <span class="star s1" aria-hidden="true"></span>
+    <span class="star s2" aria-hidden="true"></span>
+    <span class="star s3" aria-hidden="true"></span>
+  </div>
+
+  <header class="head">
+    <div class="title">
+      <h1>Teleport</h1>
+      <p id="status" class="status">Using your real location</p>
+    </div>
+    <button id="toggle" class="toggle" role="switch" aria-checked="false" aria-label="Spoofing">
+      <span class="knob"></span>
+    </button>
+  </header>
+
+  <section class="map-wrap">
+    <div id="map" aria-label="Click the map to drop a pin"></div>
+    <span class="map-hint">Click anywhere to drop a pin</span>
+  </section>
+
+  <section id="here" class="here" aria-live="polite">
+    <span id="here-place" class="here-place">Real location</span>
+    <span id="here-coords" class="here-coords"></span>
+  </section>
+
+  <section class="block">
+    <h2 class="eyebrow">Calm places to be</h2>
+    <div id="grid" class="grid"></div>
+  </section>
+
+  <section class="block">
+    <h2 class="eyebrow">Drop a precise pin</h2>
+    <div class="manual">
+      <label class="field"><span>Latitude</span>
+        <input id="lat" type="number" step="any" placeholder="36.3932" inputmode="decimal" /></label>
+      <label class="field"><span>Longitude</span>
+        <input id="lng" type="number" step="any" placeholder="25.4615" inputmode="decimal" /></label>
+      <button id="apply" class="apply">Set this pin</button>
+    </div>
+    <p id="hint" class="hint"></p>
+  </section>
+
+  <footer class="foot">
+    <button id="reload" class="reload">Reload tab to apply</button>
+    <span class="foot-note">Overrides the in-page location API, not your IP.</span>
+  </footer>
+
+  
+  
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+// --- standalone stubs so popup.js runs without the extension runtime ---
+let __mem = {};
+const chrome = {
+  storage: { local: {
+    get: (k, cb) => cb({ spoof: __mem.spoof }),
+    set: (o) => { Object.assign(__mem, o); },
+  }, onChanged: { addListener: () => {} } },
+  tabs: { query: (q, cb) => cb([{ id: 1, url: 'https://example-preview.com/' }]), reload: () => {} },
+};
+</script>
+<script>// popup.js — Teleport popup: clickable map + a single global location.
+
+const DESTINATIONS = [
+  { id:'santorini', name:'Santorini', sub:'Greece',        lat:36.3932,  lng:25.4615,   emoji:'🏖️', c1:'#3a6ea5', c2:'#e9d8c3' },
+  { id:'arashiyama',name:'Arashiyama',sub:'Kyoto, Japan',  lat:35.0094,  lng:135.6669,  emoji:'🎋', c1:'#6a8f6b', c2:'#e7c4cf' },
+  { id:'banff',     name:'Banff',     sub:'Canada',        lat:51.1784,  lng:-115.5708, emoji:'🏔️', c1:'#2f7d8c', c2:'#cfe4e6' },
+  { id:'ubud',      name:'Ubud',      sub:'Bali',          lat:-8.5069,  lng:115.2625,  emoji:'🌴', c1:'#3f7d4f', c2:'#d8e8b8' },
+  { id:'reykjavik', name:'Reykjavík', sub:'Iceland',       lat:64.1466,  lng:-21.9426,  emoji:'🌌', c1:'#3b3f73', c2:'#7fd6b0' },
+  { id:'maldives',  name:'Maldives',  sub:'Indian Ocean',  lat:3.2028,   lng:73.2207,   emoji:'🐚', c1:'#1f9bb5', c2:'#eee2c6' },
+  { id:'bigsur',    name:'Big Sur',   sub:'California',     lat:36.2704,  lng:-121.8081, emoji:'🌊', c1:'#2c6e8f', c2:'#e7b98e' },
+  { id:'zermatt',   name:'Zermatt',   sub:'Swiss Alps',    lat:46.0207,  lng:7.7491,    emoji:'⛰️', c1:'#5e7f96', c2:'#f0f3f5' },
+];
+
+const $ = (id) => document.getElementById(id);
+const toggle = $('toggle'), statusEl = $('status'), hereEl = $('here');
+const herePlace = $('here-place'), hereCoords = $('here-coords');
+const latIn = $('lat'), lngIn = $('lng'), hint = $('hint'), grid = $('grid');
+
+// Single global spoof state, shared by every tab.
+let state = { enabled:false, lat:null, lng:null, accuracy:20, label:null, id:null };
+let map = null, marker = null;
+
+const fmt = (lat, lng) => (lat == null ? '' : `${(+lat).toFixed(4)}, ${(+lng).toFixed(4)}`);
+
+function persist() { chrome.storage.local.set({ spoof: state }); }
+
+function setPin(lat, lng, label, id) {
+  state = { enabled:true, lat, lng, accuracy:20, label: label || 'Custom pin', id: id || null };
+  latIn.value = lat; lngIn.value = lng;
+  placeMarker(lat, lng, true);
+  persist(); render();
+}
+
+/* ---------- map ---------- */
+function initMap(lat, lng) {
+  map = L.map('map', {
+    zoomControl: true, attributionControl: true,
+    scrollWheelZoom: false, doubleClickZoom: false, worldCopyJump: true,
+  }).setView([lat ?? 20, lng ?? 0], lat == null ? 1 : 6);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
+    subdomains: 'abcd', maxZoom: 19,
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+  }).addTo(map);
+
+  map.on('click', (e) => setPin(+e.latlng.lat.toFixed(5), +e.latlng.lng.toFixed(5), 'Custom pin', null));
+  if (lat != null) placeMarker(lat, lng, false);
+  setTimeout(() => map.invalidateSize(), 60);
+}
+
+function placeMarker(lat, lng, recenter) {
+  const icon = L.divIcon({ className: '', html: '<div class="pin"></div>', iconSize:[18,18], iconAnchor:[9,18] });
+  if (!marker) marker = L.marker([lat, lng], { icon }).addTo(map);
+  else marker.setLatLng([lat, lng]);
+  if (recenter) map.setView([lat, lng], Math.max(map.getZoom(), 6), { animate: true });
+}
+
+/* ---------- render ---------- */
+function render() {
+  toggle.setAttribute('aria-checked', String(state.enabled));
+  if (state.enabled && state.lat != null) {
+    statusEl.textContent = 'Spoofing on';
+    statusEl.classList.add('on'); hereEl.classList.add('on');
+    herePlace.textContent = state.label || 'Custom pin';
+    hereCoords.textContent = fmt(state.lat, state.lng);
+  } else {
+    statusEl.textContent = 'Using your real location';
+    statusEl.classList.remove('on'); hereEl.classList.remove('on');
+    herePlace.textContent = 'Real location';
+    hereCoords.textContent = state.lat != null ? `Saved pin: ${fmt(state.lat, state.lng)}` : '';
+  }
+  [...grid.children].forEach((el) => {
+    el.classList.toggle('active', state.enabled && el.dataset.id === state.id);
+  });
+}
+
+function buildGrid() {
+  DESTINATIONS.forEach((d) => {
+    const card = document.createElement('button');
+    card.className = 'dest'; card.dataset.id = d.id;
+    card.innerHTML = `
+      <span class="swatch" style="background:linear-gradient(135deg, ${d.c1}, ${d.c2})">${d.emoji}</span>
+      <span class="name">${d.name}</span>
+      <span class="sub">${d.sub}</span>`;
+    card.addEventListener('click', () => {
+      hint.textContent = ''; hint.className = 'hint';
+      setPin(d.lat, d.lng, `${d.name}, ${d.sub}`, d.id);
+    });
+    grid.appendChild(card);
+  });
+}
+
+/* ---------- controls ---------- */
+toggle.addEventListener('click', () => {
+  if (!state.enabled && state.lat == null) {
+    hint.textContent = 'Pick a place, click the map, or drop a pin first.';
+    hint.className = 'hint err';
+    return;
+  }
+  state.enabled = !state.enabled;
+  persist(); render();
+});
+
+$('apply').addEventListener('click', () => {
+  const lat = parseFloat(latIn.value), lng = parseFloat(lngIn.value);
+  if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+    hint.textContent = 'Latitude needs to be between -90 and 90.'; hint.className = 'hint err'; return;
+  }
+  if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+    hint.textContent = 'Longitude needs to be between -180 and 180.'; hint.className = 'hint err'; return;
+  }
+  setPin(lat, lng, 'Custom pin', null);
+  hint.textContent = 'Pinned. Reload the tab if a site cached your old spot.';
+  hint.className = 'hint ok';
+});
+
+$('reload').addEventListener('click', () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0]) chrome.tabs.reload(tabs[0].id);
+    window.close();
+  });
+});
+
+/* ---------- boot ---------- */
+chrome.storage.local.get(['spoof'], (res) => {
+  if (res && res.spoof) state = Object.assign(state, res.spoof);
+  if (state.lat != null) { latIn.value = state.lat; lngIn.value = state.lng; }
+  buildGrid();
+  initMap(state.lat, state.lng);
+  render();
+});
+</script>
+</body></html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="sky">
+    <span class="orb" aria-hidden="true"></span>
+    <span class="star s1" aria-hidden="true"></span>
+    <span class="star s2" aria-hidden="true"></span>
+    <span class="star s3" aria-hidden="true"></span>
+  </div>
+
+  <header class="head">
+    <div class="title">
+      <h1>Teleport</h1>
+      <p id="status" class="status">Using your real location</p>
+    </div>
+    <button id="toggle" class="toggle" role="switch" aria-checked="false" aria-label="Spoofing">
+      <span class="knob"></span>
+    </button>
+  </header>
+
+  <section class="map-wrap">
+    <div id="map" aria-label="Click the map to drop a pin"></div>
+    <span class="map-hint">Click anywhere to drop a pin</span>
+  </section>
+
+  <section id="here" class="here" aria-live="polite">
+    <span id="here-place" class="here-place">Real location</span>
+    <span id="here-coords" class="here-coords"></span>
+  </section>
+
+  <section class="block">
+    <h2 class="eyebrow">Calm places to be</h2>
+    <div id="grid" class="grid"></div>
+  </section>
+
+  <section class="block">
+    <h2 class="eyebrow">Drop a precise pin</h2>
+    <div class="manual">
+      <label class="field"><span>Latitude</span>
+        <input id="lat" type="number" step="any" placeholder="36.3932" inputmode="decimal" /></label>
+      <label class="field"><span>Longitude</span>
+        <input id="lng" type="number" step="any" placeholder="25.4615" inputmode="decimal" /></label>
+      <button id="apply" class="apply">Set this pin</button>
+    </div>
+    <p id="hint" class="hint"></p>
+  </section>
+
+  <footer class="foot">
+    <button id="reload" class="reload">Reload tab to apply</button>
+    <span class="foot-note">Overrides the in-page location API, not your IP.</span>
+  </footer>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
