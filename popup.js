@@ -1,4 +1,3 @@
-// popup.js — Teleport popup: clickable map + a single global location.
 
 const DESTINATIONS = [
   { id:'santorini', name:'Santorini', sub:'Greece',        lat:36.3932,  lng:25.4615,   emoji:'🏖️', c1:'#3a6ea5', c2:'#e9d8c3' },
@@ -16,7 +15,6 @@ const toggle = $('toggle'), statusEl = $('status'), hereEl = $('here');
 const herePlace = $('here-place'), hereCoords = $('here-coords');
 const latIn = $('lat'), lngIn = $('lng'), hint = $('hint'), grid = $('grid');
 
-// Single global spoof state, shared by every tab.
 let state = { enabled:false, lat:null, lng:null, accuracy:20, label:null, id:null };
 let map = null, marker = null;
 
