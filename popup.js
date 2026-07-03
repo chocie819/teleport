@@ -1,4 +1,3 @@
-
 const DESTINATIONS = [
   { id:'santorini', name:'Santorini', sub:'Greece',        lat:36.3932,  lng:25.4615,   emoji:'🏖️', c1:'#3a6ea5', c2:'#e9d8c3' },
   { id:'arashiyama',name:'Arashiyama',sub:'Kyoto, Japan',  lat:35.0094,  lng:135.6669,  emoji:'🎋', c1:'#6a8f6b', c2:'#e7c4cf' },
@@ -29,7 +28,6 @@ function setPin(lat, lng, label, id) {
   persist(); render();
 }
 
-/* ---------- map ---------- */
 function initMap(lat, lng) {
   map = L.map('map', {
     zoomControl: true, attributionControl: true,
@@ -53,7 +51,6 @@ function placeMarker(lat, lng, recenter) {
   if (recenter) map.setView([lat, lng], Math.max(map.getZoom(), 6), { animate: true });
 }
 
-/* ---------- render ---------- */
 function render() {
   toggle.setAttribute('aria-checked', String(state.enabled));
   if (state.enabled && state.lat != null) {
@@ -88,7 +85,6 @@ function buildGrid() {
   });
 }
 
-/* ---------- controls ---------- */
 toggle.addEventListener('click', () => {
   if (!state.enabled && state.lat == null) {
     hint.textContent = 'Pick a place, click the map, or drop a pin first.';
@@ -119,7 +115,6 @@ $('reload').addEventListener('click', () => {
   });
 });
 
-/* ---------- boot ---------- */
 chrome.storage.local.get(['spoof'], (res) => {
   if (res && res.spoof) state = Object.assign(state, res.spoof);
   if (state.lat != null) { latIn.value = state.lat; lngIn.value = state.lng; }
