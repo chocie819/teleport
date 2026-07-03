@@ -1,6 +1,3 @@
-// bridge.js — runs in the ISOLATED world of every frame at document_start.
-// Reads the single saved pin from chrome.storage and relays it to the page,
-// then keeps the page updated whenever the popup changes the setting.
 (function () {
   'use strict';
 
