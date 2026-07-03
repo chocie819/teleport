@@ -1,14 +1,12 @@
-// inject.js — runs in the page's MAIN world at document_start.
-// Overrides navigator.geolocation so sites receive spoofed coordinates.
 (function () {
   'use strict';
   if (window.__teleportInstalled) return;
   window.__teleportInstalled = true;
 
-  let spoof = null;        // { enabled, lat, lng, accuracy, label }
-  let ready = false;       // have we received the first state from the bridge?
-  const pending = [];      // calls made before the first state arrives
-  const watchers = new Map(); // ourId -> { success, error, options, realId }
+  let spoof = null;        
+  let ready = false;       
+  const pending = [];      
+  const watchers = new Map(); 
   let nextId = 1;
 
   const geo = navigator.geolocation;
@@ -71,7 +69,6 @@
     }
   }
 
-  // When the spoof state changes live, keep active watches in sync.
   function refreshWatchers() {
     watchers.forEach((entry) => {
       if (isOn()) {
@@ -102,7 +99,6 @@
       geo.watchPosition = watchPosition;
       geo.clearWatch = clearWatch;
     } catch (_) {
-      // Some hardened pages freeze the object; nothing we can do there.
     }
   }
 })();
