@@ -5,7 +5,6 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Packaged builds
 *.zip
 *.crx
 *.pem
